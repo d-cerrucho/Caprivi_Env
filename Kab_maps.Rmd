@@ -1,0 +1,244 @@
+---
+title: "Maps"
+author: "Diego"
+date: "2022-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Paquetes and files
+
+```{r}
+pacman::p_load(tidyverse, googlesheets4,ggridges,viridis,hrbrthemes, lubridate, gdata,dplyr,zoo,rgeoboundaries, raster,ggspatial,rnaturalearth,rgeos,leaflet,chirps, sf,zoo,rio,rnaturalearthdata,geodata,rgdal,terra,raster,tiff)
+remotes::install_gitlab("dickoa/rgeoboundaries")  
+```
+
+
+# Mapas climaticos
+## Ubicacion
+```{r}
+africa <- ne_countries(continent = "Africa", returnclass = "sf", scale = "medium")
+namibia <- africa %>% filter(sovereignt=="Namibia")
+africa %>%  
+  ggplot()+
+  geom_sf() + 
+  geom_sf(data=namibia, fill="gray50")
+```
+## Maps of administrative 1 and 2
+```{r}
+namibia_adm1 <- geoboundaries(c("namibia"), "adm1")
+zambezi <- namibia_adm1%>% filter(shapeName=="Zambezi Region")
+namibia_adm2 <- geoboundaries(c("namibia"), "adm2")
+zambezi_div<-namibia_adm2%>% filter(shapeName=="Kabe"|shapeName=="Kongola"|shapeName=="Linyandi"|shapeName=="Sibinda"|shapeName=="Katima Muliro Rural"|shapeName=="Katima Muliro Urban")
+
+
+namibia  %>% 
+ggplot() +
+  geom_sf()+
+  geom_sf(data= zambezi, fill="gray50")
+
+
+namibia %>% 
+ggplot() +
+  geom_sf()+
+  geom_sf(data= zambezi, fill="gray50")
+
+```
+```{r}
+library(htmltools)
+
+zambezi_div %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(label = zambezi, weight=1, popup = ~htmlEscape(shapeID))
+```
+## Mapa con variables climaticas
+```{r}
+tmin_data <- getData(name = "worldclim", var = "tmin", res = 0.5,lon=24, lat=-18)
+gain(tmin_data) <- 0.1
+tmin_mean <- mean(tmin_data$tmin7_36)
+
+tmin_mean_zam <- raster::mask(tmin_mean, as_Spatial(zambezi))
+tmin_mean_zam_df <- as.data.frame(tmin_mean_zam, xy = TRUE, na.rm = TRUE)
+
+```
+
+
+```{r}
+t_min_map<- tmin_mean_zam_df %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_raster(aes(fill = layer)) +
+  geom_sf(data = zambezi, inherit.aes = FALSE, fill = NA) +
+  labs(
+    title = "Mean monthly min temperatures in July in Zambezi",
+    subtitle = "For the years 1970-2000"
+  ) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_fill_gradient(
+    name = "Temperature (°C)",
+    low = "#FEED99",
+    high = "#AF3301"
+  )
+  ggsave(last_plot(), file="Plots/tmin_map.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+
+```
+##Tmin in JUly in serondela
+```{r}
+
+tmin_mean_zam_df %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_raster(aes(fill = layer))+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  xlim(c(24.9, 25.1))+
+  ylim(c(-17.9, -17.7))+
+  labs(
+    title = "Tmin July Kabulabula"
+  )
+ scale_fill_gradient(
+    name = "Tmin",
+    low = "#FEED99",
+    high = "#AF3301"
+  )
+```
+
+
+## subir mapas de otras variables ambientales___altitude
+```{r}
+alt_data <- getData(name = "worldclim", var = "alt", res = 0.5,lon=24, lat=-18)
+plot(alt_data)
+alt_zam <- raster::mask(alt_data, as_Spatial(zambezi))
+alt_zam_df <- as.data.frame(alt_zam, xy = TRUE, na.rm = TRUE)
+alt_zam_df %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_raster(aes(fill = alt_36)) +
+  geom_sf(data = zambezi, inherit.aes = FALSE, fill = NA) +
+  labs(
+    title = "Altitude"
+  ) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_fill_gradient(
+    name = "ALtitude (mals)",
+    low = "#FEED99",
+    high = "#AF3301"
+  )
+``
+
+
+##Altitude Kabulabula
+`
+```{r}
+alt_zam_df %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_raster(aes(fill = alt_36))+
+  xlab("Longitude")+
+  ylab("Latitude")+
+  xlim(c(24.9, 25.1))+
+  ylim(c(-17.9, -17.7))+
+  labs(
+    title = "Altitude Kabulabula"
+  )
+ scale_fill_gradient(
+    name = "ALtitude in KAbulabula (mals)",
+    low = "#FEED99",
+    high = "#AF3301"
+  )
+```
+## soil from ISDA https://gitlab.com/openlandmap/africa-soil-and-agronomy-data-cube
+# K in ppm 0-20cm
+```{r}
+extent(zambezi)
+crs(zambezi)
+
+
+
+tif.cog = paste0("/vsicurl/https://s3.eu-central-1.wasabisys.com/africa-soil/layers30m/", 
+              c("sol_log.k_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_bdr_m_30m_0..200cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_clay_tot_psa_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.c_tot_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.ca_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.mg_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.n_tot_ncs_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.oc_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.p_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.s_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_log.zn_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_ph_h2o_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_sand_tot_psa_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
+              "sol_texture.class_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif"
+              ))
+
+sol30m = lapply(tif.cog, function(i){crop(rast(i), zambezi)})  
+sol30m.sp = do.call(cbind, lapply(sol30m, function(i){as.data.frame(i)}))
+
+str(sol30m.sp)
+
+sol30m.sp$k_mehlich3_l1 = expm1(sol30m.sp$sol_log.k_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1 / 10)
+
+pol.zam = rasterize(zambezi, sol30m[[1]])
+sol30m.m = as(as(raster(pol.zam), "SpatialGridDataFrame"), "SpatialPixelsDataFrame")
+sol30m.m$k_mehlich3_l1 = sol30m.sp$k_mehlich3_l1[sol30m.m@grid.index]
+
+spplot(sol30m.m["k_mehlich3_l1"])
+
+
+```
+
+# p
+```{r}
+
+pol.v <- vect(zambezi)
+
+tif.cog = paste0("/vsicurl/https://s3.eu-central-1.wasabisys.com/africa-soil/layers30m/",
+              "sol_log.p_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif"
+              )
+
+sol30m = lapply(tif.cog, function(i){crop(rast(i), pol.v)})  
+sol30m.sp = do.call(cbind, lapply(sol30m, function(i){as.data.frame(i)}))
+
+#Next, we need to back-transform values from log-scale to ppms:
+
+sol30m.sp$p_mehlich3_l1 = expm1(sol30m.sp$sol_log.p_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1 / 10)
+
+
+pol.r = rasterize(pol.v, sol30m[[1]])
+sol30m.m = as(as(raster(pol.r), "SpatialGridDataFrame"), "SpatialPixelsDataFrame")
+sol30m.m$p_mehlich3_l1 = sol30m.sp$p_mehlich3_l1[sol30m.m@grid.index]
+
+spplot(sol30m.m["p_mehlich3_l1"])
+```
+
+
+## Upload maps from qgis project
+
+```{r}
+
+GDALinfo(mg_raster)
+extent(mg_raster)
+crs(mg_raster)
+plot(mg_raster)
+
+mg_raster <- raster(x = "Data/Mg_20_PPM.tif")
+ t = readTIFF("Data/Mg_20_PPM.tif", as.is=TRUE)
+```
+
+## GRownd water drought risk
+```{r}
+gw_drought_risk<- readTIFF("Data/Groundwater_drought_risk_updated_final/GRoundwater_drought_risk_updated_final.tif")
+plot(gw_drought_risk)
+```
+
+
+
+
+
+
+
+
