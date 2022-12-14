@@ -1,0 +1,133 @@
+---
+title: "W_pumping"
+author: "Diego"
+date: "2022-12-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## Libraries and files upload. The file solar has PVP downloaded from https://re.jrc.ec.europa.eu/pvg_tools/en/  I used 4 panneld of 460 w as nominal here https://www.agriturfnamibia.com/_files/ugd/efc0ed_d99f05f6d9024ea19b1fc780afe6d5e7.pdf where I got info in solar pannels needed
+```{r}
+library(dbplyr,readr,rio)
+Solar <- read_csv("Solar.csv")
+show_col_types = FALSE
+```
+
+## Add column of water pump hourly if at 30m
+```{r}
+Solar<- Solar %>% 
+         mutate(hourly_m3_30 = 
+           ifelse(PVP_w < 150, 0,
+           ifelse(PVP_w >=150 & PVP_w <200,0.32,
+           ifelse(PVP_w >=200 & PVP_w <300,0.93,
+           ifelse(PVP_w >=300 & PVP_w <400,1.63,
+           ifelse(PVP_w >=400 & PVP_w <500,2.2,
+           ifelse(PVP_w >=500 & PVP_w <600,2.6, 
+           ifelse(PVP_w >=600 & PVP_w <700,3.1,
+           ifelse(PVP_w >=700 & PVP_w <800,3.46,
+           ifelse(PVP_w >=800 & PVP_w <900,3.79, 
+           ifelse(PVP_w >=900,4.52,
+                 "ERROR")))))))))))
+```
+  
+## Add column of water pump hourly if at 40m
+```{r}
+Solar<- Solar %>% 
+         mutate(hourly_m3_40 = 
+           ifelse(PVP_w < 200, 0,
+           ifelse(PVP_w >=200 & PVP_w <300,0.41,
+           ifelse(PVP_w >=300 & PVP_w <400,1,
+           ifelse(PVP_w >=400 & PVP_w <500,1.55,
+           ifelse(PVP_w >=500 & PVP_w <600,2, 
+           ifelse(PVP_w >=600 & PVP_w <700,2.4,
+           ifelse(PVP_w >=700 & PVP_w <800,2.84,
+           ifelse(PVP_w >=800 & PVP_w <900,3.19, 
+           ifelse(PVP_w >=900,3.92,
+                 "ERROR"))))))))))
+
+```
+## Add column of water pump hourly if at 50m
+
+```{r}
+
+
+Solar<- Solar %>% 
+         mutate(hourly_m3_50 =  
+           ifelse(PVP_w < 250, 0,
+           ifelse(PVP_w >=250 & PVP_w <300,0.3,
+           ifelse(PVP_w >=300 & PVP_w <400,0.73,
+           ifelse(PVP_w >=400 & PVP_w <500,1.23,
+           ifelse(PVP_w >=500 & PVP_w <600,1.7, 
+           ifelse(PVP_w >=600 & PVP_w <700,2.16,
+           ifelse(PVP_w >=700 & PVP_w <800,2.49,
+           ifelse(PVP_w >=800 & PVP_w <900,2.92, 
+           ifelse(PVP_w >=900,3.73,
+                 "ERROR"))))))))))
+```
+                 
+
+## transform all new coumns into num
+```{r}
+Solar$hourly_m3_30<-as.numeric(Solar$hourly_m3_30)
+Solar$hourly_m3_40<-as.numeric(Solar$hourly_m3_40)
+Solar$hourly_m3_50<-as.numeric(Solar$hourly_m3_50)
+
+
+
+```
+
+
+
+
+## add a column combining month-day-hour
+
+```{r}
+Solar<-Solar %>% 
+      mutate(mon_day_hr = paste(mon, day,hr, sep= "-"))
+```
+
+
+## add a column combining month-say
+
+```{r}
+Solar<-Solar %>% 
+      mutate(mon_day = paste(mon_l, day, sep= "-"))
+```
+
+str(Solar)
+
+## Historicalm3 per day (average for series) at 30m
+
+```{r}
+Daily<- Solar %>% 
+  group_by(mon_day) %>% 
+  summarise(m3_day_30 =mean (hourly_m3_30)*24)
+
+export(Daily,file="Data/Dailym3.xlsx")
+```
+
+## Historical for days of the year, hours of pumping, total water pumped, average liters per hour 30m
+
+```{r}
+Daily_summ<- Solar %>% 
+  group_by(mon_l) %>% 
+  summarise(m3_day_30 =mean (hourly_m3_30)*24)
+export(Daily_summ,file="Data/Dailym3_day.xlsx")
+```
+
+
+```{r}
+export(Solar, file="Data/Solar_processed.xlsx")
+```
+
+
+

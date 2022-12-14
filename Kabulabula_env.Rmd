@@ -1,0 +1,391 @@
+---
+title: "Kabulabula_env"
+author: "Diego"
+date: "2022-12-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+ 
+## kabulabula token: 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
+
+## pakages
+```{r}
+pacman::p_load(tidyverse, googlesheets4,ggridges,viridis,hrbrthemes, lubridate, gdata,dplyr,zoo,rgeoboundaries, raster,ggspatial,rnaturalearth,rgeos,leaflet,chirps, sf,zoo,rio,rnaturalearthdata,Rtools, Evapotransporation,climatrends,FAO56,usethis)
+```
+## github
+```{r}
+usethis::use_git_remote("origin", url = NULL, overwrite = TRUE)
+use_github(protocol = 'https',auth_token = "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")
+```
+
+# Descarga y procesado de datos para Kabulabula; datod de NASA
+### T2MDEW The dew/frost point temperature at 2 meters above the surface of the earth.
+### T2MWET = Wet Bulb Temperature at 2 Meters
+```{r}
+#fechas y coordenadas
+dates <- c("2002-01-01","2021-12-21") 
+lonlat <- data.frame(lon = 25.002256, lat = -17.798596)
+#descarga Nasa
+sol_sk <- nasapower::get_power(
+  community = "AG",
+  lonlat = c(25.013398109351684,-17.823718036309124) ,
+  pars= c("ALLSKY_SFC_SW_DWN","TOA_SW_DWN", "T2M_MAX","T2M_MIN","T2M","PRECTOTCORR","RH2M","WS2M_MAX","WS2M","WD2M","GWETTOP","T2MDEW", "T2MWET" ),
+  dates = c(min(dates), max(dates)),
+  temporal_api = "DAILY"
+) 
+```
+## Cambio formato de fechas y nombres de columnas
+```{r}
+sol<- sol_sk %>% 
+  dplyr::rename(date = YYYYMMDD, rad = ALLSKY_SFC_SW_DWN, rad_e =TOA_SW_DWN, tmax= T2M_MAX, tmin=T2M_MIN, tmean = T2M, pp=PRECTOTCORR,wdir = WD2M, ws_max=WS2M_MAX,ws_avg=WS2M, rh = RH2M,soilm=GWETTOP, tdew=T2MDEW, twet =T2MWET) %>%
+  mutate(date = as.Date(date)) %>%
+dplyr::select(date,MM,rad, rad_e, tmin, tmax,tmean,pp,rh,soilm, wdir,ws_avg,ws_max,tdew,twet)
+## Subir Tilt file
+```
+
+## Descargo datos de pp de CHIRPS, y remplazo los valores de NASA (estos tienen menos calidad). Una vez desscargado abro el archivo excell, y cargo el macro U2DF7 (inser>adds_inn>manage adds_in>GO in excel adds_inn> Agrego una columna (et0) con Eto calculado con PM, guardar en excell.Por ultimo inportar el archivo sol al environment. Finalizo con el archico "sol" que tiene una columna de et0.
+```{r}
+chirps<- get_chirps(lonlat, dates, server = "ClimateSERV")%>% 
+  mutate(YYJJJ= paste0(str_sub(year(date), -2), str_pad(yday(date), 3, pad = "0"))) %>% 
+  dplyr::select (YYJJJ,chirps)
+
+sol<-sol %>% 
+  mutate(YYJJJ= paste0(str_sub(year(date), -2), str_pad(yday(date), 3, pad = "0"))) %>% 
+  merge(chirps, by="YYJJJ")%>% 
+  dplyr::select(-pp) %>% 
+  mutate(pp=chirps) %>% 
+  mutate(julian=yday(date))
+
+
+  export(sol, file="Data/sol.xlsx")
+```
+## Add ETo. FAO56: Evapotranspiration Based on FAO Penman-Monteith Equation; https://rdrr.io/cran/FAO56/man/ETo_FPM.html
+sol<- sol %>%
+mutate (ET0 = ETo_FPM(T_mean = sol$tmean, u_2 = sol$ws_avg, T_min = sol$tmin, T_max = sol$tmax, phi_deg = -17.8237, elev = 400, date =sol$date, T_dew = sol$tdew, n = 8.5, N = 12.31))
+
+ export(sol, file="Data/sol.xlsx")
+
+# Analisis de variables climaticas
+## PP
+```{r}
+sol %>% 
+  mutate(date1 = update(ymd(date), year = 1)) %>% 
+  ggplot() + 
+  aes(x=date1, y=pp)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  geom_smooth(se=TRUE)+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 55, by = 5),limits=c(0,55))+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) + 
+  labs(x="Date", y="Rain (CHIRPS; mm.day-1)") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  ggsave(last_plot(), file="Plots/PP.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+```
+## Provabilided de lluvia
+```{r}
+sol %>%
+  mutate(date1 = update(ymd(date), year = 1)) %>%
+  mutate(llovio=ifelse(pp>5,1,0))%>%
+  group_by(date1) %>%
+  summarise(Prob_pp=sum(llovio)*5) %>%
+  ggplot() +
+  aes(x=date1, y=Prob_pp)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  #geom_smooth(se=TRUE)+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 100, by = 5),limits=c(0,100))+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) +
+  labs(x="Date", y="Chances of Rain >5mm (%)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+ 
+  ggsave(last_plot(), file="Plots/Probabilidad de PP.tiff",
+       w=150, h=120, units="mm", dpi=300)
+```
+
+
+
+## ETo
+```{r}
+sol %>% 
+  mutate(date1 = update(ymd(date), year = 1)) %>% 
+  ggplot() + 
+  aes(x=date1, y=ET0)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  geom_smooth(se=TRUE)+
+  geom_quantile(method = "rqss",quantiles=0.95,lambda=20,size=1,colour= "red")+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) +
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 14, by = 1))+
+  labs(x="Date", y="ET0 (mm.day-1)") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  ggsave(last_plot(), file="Plots/ET0.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+```
+
+## ETo exel (eto calculated from excell)
+```{r}
+sol %>% 
+  mutate(date1 = update(ymd(date), year = 1)) %>% 
+  ggplot() + 
+  aes(x=date1, y=ET0exe)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  geom_smooth(se=TRUE)+
+  geom_quantile(method = "rqss",quantiles=0.95,lambda=20,size=1,colour= "red")+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) +
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 14, by = 1))+
+  labs(x="Date", y="ET0exe (mm.day-1)") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  ggsave(last_plot(), file="Plots/ET0exe.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+```
+
+##Tabla de clima  per JUlian
+
+```{r}
+
+CLI_julian<- sol %>%  
+  group_by(julian) %>% 
+  summarise(Tmax = round(mean(tmax),1), Tmin = round(mean(tmin),1),Wdir = round(mean(wdir)), Wmax = round(mean(ws_max)), ETO=round(mean(ET0),2),Rad_daily=round(mean(rad)), RH = round (mean(rh)), Rain_acc=round(mean(pp)))
+                                                                                                                                                          
+view(CLI_julian)
+export(CLI_julian, file="Data/Julian_Climate.xlsx")
+```
+
+
+
+
+## Analisis de balance hidrico diario 
+```{r}
+#Calculado como agua bombeada + lluvia (en m3 para 2 has) - et0 (en m3 para 2 has). Considere 80% de eficiencia de riego
+w_balance_dia<-sol %>%
+  mutate(balance_d= ((lts_dia*0.8)+pp*20)-(ET0*20))%>% 
+  mutate(date1 = update(ymd(date), year = 1))
+
+ggplot(w_balance_dia) + 
+  aes(x=date1, y=balance_d)+
+  geom_point(shape = 1, alpha=0.6, size =1) +
+  geom_smooth(se=TRUE)+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) + 
+  labs(x="Julian Day", y="Daily water balance (m3)") + 
+  theme_bw() + 
+  ggtitle("Balance Hidrico Diario (m3 de H2O totales para las 2 has)")+
+  geom_quantile(method = "rqss",quantiles=0.05,lambda=20,size=1,colour= "red")+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+  
+  scale_y_continuous(breaks = seq(-100, 300, 50), limits=c(-100,300))+
+  geom_hline(yintercept = 0)+
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+
+  ggsave(last_plot(), file="Plots/Water_balance_daily.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+
+```
+## Ahora lo mismo per accumulado de 3 dias. 
+```{r}
+# Use la funcion rollapply. 3 dias es la minima frecuancia de riego en suelo arenoso sin deficit severo. Podria simplificar haciendo rollaply al balance diario...
+w_balance_acc3<-sol %>% 
+  mutate(lts_dia_roll= (rollapply(lts_dia, 3, sum,partial = TRUE))) %>% 
+  mutate(pp_roll=  (rollapply(pp, 3, sum,partial = TRUE))) %>% 
+  mutate(et0_roll=  (rollapply(ET0, 3, sum,partial = TRUE))) %>% 
+  mutate(balance_acc3=((lts_dia_roll*0.8)+pp_roll*20)-(et0_roll*20)) %>% 
+  mutate(date1 = update(ymd(date), year = 1800)) 
+  
+ggplot(w_balance_acc3) + 
+  aes(x=date1, y=balance_acc3)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  geom_smooth()+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) + 
+  labs(y="Balance_acc3 (m3)",x="Dia Juliano")+
+  ggtitle("Balance Hidrico Accumulado en 3 Dias (m3 de H2O totales para las 2 has)")+
+  geom_quantile(method = "rqss",quantiles=0.05,lambda=20,size=1,colour= "red", label="5%")+
+  geom_hline(yintercept = 0)+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+  
+  scale_y_continuous(breaks = seq(-200, 600, 50), limits=c(-200,300)
+    )
+  
+  ggsave(last_plot(), file="Plots/Water_balance_acc3.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+
+```
+
+## Temperature analysis
+```{r}
+frost <- sol %>% 
+  dplyr::select(date, tmin,julian) %>% 
+  mutate(fr_4 = if_else(tmin<=4, 1, 0)) %>% 
+  mutate(fr_3 = if_else(tmin<=3, 1, 0)) %>% 
+  mutate(fr_6 = if_else(tmin<=6, 1, 0)) %>%
+  mutate(fr_8 = if_else(tmin<=8, 1, 0))
+head(frost)
+```
+## % Dias de frio por mes, promedio
+
+```{r}
+fst_num_mon<- sol %>% 
+  mutate(month = month(sol$date), fr_4 = if_else(tmin<=4, 1, 0),fr_3 = if_else(tmin<=3, 1, 0),
+      fr_6 = if_else(tmin<=6, 1, 0),fr_8 = if_else(tmin<=8, 1, 0),fr_10 =   if_else(tmin<=10, 1, 0)) %>% 
+  group_by(month) %>% 
+  summarise(n_tmin=mean(tmin), frost3=round(mean(fr_3)*100,2),frost4=round(mean(fr_4)*100,2),frost6 = round(mean(fr_6)*100,2), frost8 = round(mean(fr_8)*100,2))
+view(fst_num_mon)
+export(fst_num_mon, file="Data/Proporcion de dias con frost.xlsx")
+```
+
+## grafico de tmins
+
+```{r}
+sol %>% glimpse
+sol %>% 
+  mutate(date1 = update(ymd(date), year = 1800)) %>% 
+  ggplot() + 
+  aes(x=date1, y=tmin)+
+  geom_point(shape = 1, alpha=0.6, size =1) +
+  geom_smooth(se=TRUE)+
+  #scale_x_continuous(breaks = seq(0, 365, by = 20))+
+  #scale_y_continuous(breaks = seq(0, 30, by = 2))+
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b")+
+  geom_quantile(method = "rqss",quantiles=0.05,lambda=20,size=1,colour= "red")+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) + 
+  labs(x="Date", y="Tmin (C)") + 
+  geom_hline(yintercept = 4)+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 30, by = 2))+
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  ggsave(last_plot(), file="Plots/Tmin.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+  
+```
+
+
+## Analysis of relative air humidity for sun-draying conditions
+```{r}
+sol %>% 
+  mutate(date1 = update(ymd(date), year = 1800)) %>% 
+  ggplot() + 
+  aes(x=date1,  y=rh)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  geom_smooth(se=TRUE)+
+  geom_quantile(method = "rqss",quantiles=0.95,lambda=20,size=1,colour= "red")+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) + 
+  labs(x="Julian Day", y="Relative Humidity (%)") + 
+  geom_hline(yintercept = 50)+
+  geom_hline(yintercept = 60)+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 100, by = 5))+
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  ggsave(last_plot(), file="Plots/RH.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+```
+
+## Viento
+### Velocidad max diaria
+```{r}
+sol %>% 
+  mutate(date1 = update(ymd(date), year = 1800)) %>% 
+  ggplot() + 
+  aes(x=date1,  y=ws_max)+
+  geom_point(shape = 1, alpha=0.6, size =1)  +
+  geom_smooth(se=TRUE)+
+  geom_hline(yintercept = 7)+
+  scale_x_date(date_breaks="1 month", date_labels="%b")+
+  scale_y_continuous(breaks = seq(0, 10, by = 1))+
+  geom_quantile(method = "rqss",quantiles=0.95,lambda=20,size=1,colour= "red")+
+  theme(axis.text.x = element_text(angle=45, hjust = 1)) + 
+  labs(x="Date", y="Wind Speed Max (m/s)") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  ggsave(last_plot(), file="Plots/WS_max.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+```
+
+       
+### conteo de dias con viento de mas de 7 m/s y  direcciond del viento esos dias
+```{r}
+viento_7<-sol %>% 
+  filter(ws_max>=7) %>% 
+  mutate(Ndays= 1) %>% 
+  group_by(MM) %>% 
+  summarise( Direccion_rafagas=round(mean(wdir),0), N_dias_rafagas=sum(Ndays))
+
+export(viento_7, file="Data/Direccion yfreq de reafagas (7ms).xlsx")
+ 
+```
+
+# Mapas climaticos y de suelo
+## Ubicacion
+```{r}
+africa <- ne_countries(continent = "Africa", returnclass = "sf", scale = "medium")
+zambia <- africa %>% filter(sovereignt=="Zambia")
+africa %>%  
+  ggplot()+
+  geom_sf() + 
+  geom_sf(data=zambia, fill="gray50")
+```
+```{r}
+
+zambia_adm2 <- geoboundaries(c("Zambia"), "adm2")
+kaza<-zambia_adm2%>% filter(shapeName=="Sesheke"|shapeName=="Kazungula")
+zambia_adm2 %>% 
+ggplot() +
+  geom_sf()+
+  geom_sf(data= kaza, fill="gray50")
+```
+```{r}
+library(htmltools)
+
+kaza %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(label = kaza, weight=1, popup = ~htmlEscape(shapeID))
+```
+## Mapa con variables climaticas
+```{r}
+tmin_data <- getData(name = "worldclim", var = "tmin", res = 10)
+gain(tmin_data) <- 0.1
+tmin_mean <- mean(tmin_data$tmin6)
+tmin_mean_sim <- raster::mask(tmin_mean, as_Spatial(kaza))
+```
+```{r}
+tmin_mean_sim_df %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_raster(aes(fill = layer)) +
+  geom_sf(data = kaza, inherit.aes = FALSE, fill = NA) +
+  labs(
+    title = "Mean minimum temperatures for June in Simalaha",
+    subtitle = "For the years 1970-2000"
+  ) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_fill_gradient(
+    name = "Temperature (°C)",
+    low = "#FEED99",
+    high = "#AF3301"
+  )
+```
+
+1
+
+
+
+
