@@ -386,6 +386,6 @@ tmin_mean_sim_df %>%
 
 1
 
-
+d
 
 

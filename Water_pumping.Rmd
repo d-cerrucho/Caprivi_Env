@@ -128,6 +128,6 @@ export(Daily_summ,file="Data/Dailym3_day.xlsx")
 ```{r}
 export(Solar, file="Data/Solar_processed.xlsx")
 ```
-
+d
 
 
