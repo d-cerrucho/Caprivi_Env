@@ -18,6 +18,7 @@ When you click the **Knit** button a document will be generated that includes bo
 ## Libraries and files upload. The file solar has PVP downloaded from https://re.jrc.ec.europa.eu/pvg_tools/en/  I used 4 panneld of 460 w as nominal here https://www.agriturfnamibia.com/_files/ugd/efc0ed_d99f05f6d9024ea19b1fc780afe6d5e7.pdf where I got info in solar pannels needed
 ```{r}
 library(dbplyr,readr,rio)
+library(rio)
 Solar <- read_csv("Solar.csv")
 show_col_types = FALSE
 ```
@@ -128,6 +129,6 @@ export(Daily_summ,file="Data/Dailym3_day.xlsx")
 ```{r}
 export(Solar, file="Data/Solar_processed.xlsx")
 ```
-d
+
 
 
