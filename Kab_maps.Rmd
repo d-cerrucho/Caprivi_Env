@@ -12,13 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ##Paquetes and files
 
 ```{r}
-pacman::p_load(tidyverse, googlesheets4,ggridges,viridis,hrbrthemes, lubridate, gdata,dplyr,zoo,rgeoboundaries, raster,ggspatial,rnaturalearth,rgeos,leaflet,chirps, sf,zoo,rio,rnaturalearthdata,geodata,rgdal,terra,raster,tiff)
-remotes::install_gitlab("dickoa/rgeoboundaries")  
+pacman::p_load(tidyverse, googlesheets4,ggridges,viridis,hrbrthemes, lubridate, gdata,dplyr,zoo,rgeoboundaries, raster,ggspatial,rnaturalearth,rgeos,leaflet,chirps, sf,zoo,rio,rnaturalearthdata,geodata,rgdal,terra,raster,tiff,htmltools)
+#remotes::install_gitlab("dickoa/rgeoboundaries")  
 ```
 
-
 # Mapas climaticos
-## Ubicacion
+## Limites africa; highlighted namibia
 ```{r}
 africa <- ne_countries(continent = "Africa", returnclass = "sf", scale = "medium")
 namibia <- africa %>% filter(sovereignt=="Namibia")
@@ -27,34 +26,56 @@ africa %>%
   geom_sf() + 
   geom_sf(data=namibia, fill="gray50")
 ```
-## Maps of administrative 1 and 2
+## Namibia maps of administrative 1 and 2
 ```{r}
 namibia_adm1 <- geoboundaries(c("namibia"), "adm1")
+
 zambezi <- namibia_adm1%>% filter(shapeName=="Zambezi Region")
+
 namibia_adm2 <- geoboundaries(c("namibia"), "adm2")
+
 zambezi_div<-namibia_adm2%>% filter(shapeName=="Kabe"|shapeName=="Kongola"|shapeName=="Linyandi"|shapeName=="Sibinda"|shapeName=="Katima Muliro Rural"|shapeName=="Katima Muliro Urban")
 
+```
 
-namibia  %>% 
+```{r}
+
+namibia_adm1  %>% 
 ggplot() +
   geom_sf()+
   geom_sf(data= zambezi, fill="gray50")
 
 
-namibia %>% 
+zambezi_div %>% 
 ggplot() +
   geom_sf()+
-  geom_sf(data= zambezi, fill="gray50")
+  geom_sf(data= zambezi)
 
 ```
+## Mapa de Zambezy region
 ```{r}
-library(htmltools)
-
 zambezi_div %>%
   leaflet() %>%
   addTiles() %>%
-  addPolygons(label = zambezi, weight=1, popup = ~htmlEscape(shapeID))
+  addPolygons(label = zambezi, weight=1, popup = ~htmlEscape(shapeID)) %>%
+  fitBounds( 25.3,-18.2, 23.1,-17.6)
+  
 ```
+
+
+## Mapa con zoom en Kabulabula Community conservancy and with marker on proposed plot for project
+
+```{r}
+zambezi_div %>%
+  leaflet() %>%
+  addTiles() %>%
+  addPolygons(label = zambezi, weight=1, popup = ~htmlEscape(shapeID)) %>%
+  fitBounds( 24.992,-17.84, 24.899,-17.75)%>%
+  addMarkers(25.0115, -17.8244 )
+  
+```
+
+
 ## Mapa con variables climaticas
 ```{r}
 tmin_data <- getData(name = "worldclim", var = "tmin", res = 0.5,lon=24, lat=-18)
@@ -127,12 +148,13 @@ alt_zam_df %>%
     name = "ALtitude (mals)",
     low = "#FEED99",
     high = "#AF3301"
-  )
-``
+)
 
+   ggsave(last_plot(), file="Plots/ALt_map.tiff", 
+       w=150, h=120, units="mm", dpi=300)
+```
 
 ##Altitude Kabulabula
-`
 ```{r}
 alt_zam_df %>%
   ggplot(aes(x = x, y = y)) +
@@ -149,6 +171,8 @@ alt_zam_df %>%
     low = "#FEED99",
     high = "#AF3301"
   )
+ 
+
 ```
 ## soil from ISDA https://gitlab.com/openlandmap/africa-soil-and-agronomy-data-cube
 # K in ppm 0-20cm
