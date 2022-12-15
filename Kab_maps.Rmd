@@ -171,13 +171,14 @@ alt_zam_df %>%
     low = "#FEED99",
     high = "#AF3301"
   )
- 
+
+
 
 ```
 
 
 ##soil from ISDA https://gitlab.com/openlandmap/africa-soil-and-agronomy-data-cube
-###p 0-20 cm
+### P 0-20 cm
 ```{r}
 
 pol.v <- vect(zambezi)
@@ -197,8 +198,30 @@ sol30m.sp$p_mehlich3_l1 = expm1(sol30m.sp$sol_log.p_mehlich3_m_30m_0..20cm_2001.
 pol.r = rasterize(pol.v, sol30m[[1]])
 sol30m.m = as(as(raster(pol.r), "SpatialGridDataFrame"), "SpatialPixelsDataFrame")
 sol30m.m$p_mehlich3_l1 = sol30m.sp$p_mehlich3_l1[sol30m.m@grid.index]
+```
+ 
+#### P plot map of p
+```{r}
 
 spplot(sol30m.m["p_mehlich3_l1"])
+
+p_df <- as.data.frame(sol30m.m, xy = TRUE, na.rm = TRUE)
+p_df %>%
+  ggplot(aes(x = s1, y = s2)) +
+  geom_raster(aes(fill = p_mehlich3_l1)) +
+  geom_sf(data = zambezi, inherit.aes = FALSE, fill = NA) +
+  labs(
+    title = "Available P 0-20"
+  ) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  scale_fill_gradient(
+    name = "P_mehlich3 0-20 (ppm)",
+    low = "#FEED99",
+    high = "#AF3301"
+)
+ggsave(last_plot(), file="Plots/P_0-20__map.tiff",w=150, h=120, units="mm", dpi=300)
+
 ```
 
 
