@@ -174,48 +174,10 @@ alt_zam_df %>%
  
 
 ```
-## soil from ISDA https://gitlab.com/openlandmap/africa-soil-and-agronomy-data-cube
-# K in ppm 0-20cm
-```{r}
-extent(zambezi)
-crs(zambezi)
 
 
-
-tif.cog = paste0("/vsicurl/https://s3.eu-central-1.wasabisys.com/africa-soil/layers30m/", 
-              c("sol_log.k_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_bdr_m_30m_0..200cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_clay_tot_psa_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.c_tot_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.ca_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.mg_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.n_tot_ncs_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.oc_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.p_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.s_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_log.zn_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_ph_h2o_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_sand_tot_psa_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif",
-              "sol_texture.class_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1.tif"
-              ))
-
-sol30m = lapply(tif.cog, function(i){crop(rast(i), zambezi)})  
-sol30m.sp = do.call(cbind, lapply(sol30m, function(i){as.data.frame(i)}))
-
-str(sol30m.sp)
-
-sol30m.sp$k_mehlich3_l1 = expm1(sol30m.sp$sol_log.k_mehlich3_m_30m_0..20cm_2001..2017_africa_epsg4326_v0.1 / 10)
-
-pol.zam = rasterize(zambezi, sol30m[[1]])
-sol30m.m = as(as(raster(pol.zam), "SpatialGridDataFrame"), "SpatialPixelsDataFrame")
-sol30m.m$k_mehlich3_l1 = sol30m.sp$k_mehlich3_l1[sol30m.m@grid.index]
-
-spplot(sol30m.m["k_mehlich3_l1"])
-
-
-```
-
-# p
+##soil from ISDA https://gitlab.com/openlandmap/africa-soil-and-agronomy-data-cube
+###p 0-20 cm
 ```{r}
 
 pol.v <- vect(zambezi)
@@ -238,6 +200,8 @@ sol30m.m$p_mehlich3_l1 = sol30m.sp$p_mehlich3_l1[sol30m.m@grid.index]
 
 spplot(sol30m.m["p_mehlich3_l1"])
 ```
+
+
 
 
 ## Upload maps from qgis project
