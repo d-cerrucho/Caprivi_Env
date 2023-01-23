@@ -1,0 +1,52 @@
+---
+title: "Import"
+author: "Bruno Pugliese"
+date: "2023-01-22"
+output: html_document
+---
+
+# Importacion {#import}
+
+
+```{r setup-session, message=FALSE, warning=FALSE, eval=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+pacman::p_load(tidyverse, rio, janitor, lubridate, here)
+source(here::here("0-themes.R"))
+```
+
+
+Importamos el dataset de area de agua para las diferentes fechas en las que hay capturas (raw).
+
+```{r}
+url_data <- "https://docs.google.com/spreadsheets/d/1ZIiDduTZQfwN_t1d7TBROpUNTvZWMF_1GFbI70nHAJs/edit#gid=348099017"
+raw <- rio::import(url_data) %>% 
+  clean_names()
+raw %>% glimpsort
+```
+
+
+En la columna "system_time_start" está la fecha de cada dato. Sin embargo, el formato (tipo character) no resulta procesable. Es por  esto que usamos el paquete "lubridate" para crear nuevas columnas con la fecha, año, mes y día. 
+El resultado de ese procesamiento lo almacenamos en el objeto "data" con el cual vamos a continuar trbajando.
+
+```{r}
+raw %>% 
+   mutate(
+    date = mdy(system_time_start),
+    year = factor(year(date)),
+    month = month(date),
+    day = day(date),
+    date = update(date, year = 1)
+   ) %>%
+  select(-system_time_start) -> data
+
+glimpsort(data)  
+#view(data)
+```
+
+
+Una vez completada la importación y la edición de todos los datasets, los almacenamos en un archivo ".Rdata". De esta manera, podremos utilizarlos desde cualquier otro script.
+
+```{r load-data}
+save(raw, data, file = "data.Rdata")
+load(here("data.Rdata"))
+```

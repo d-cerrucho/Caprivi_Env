@@ -1,0 +1,49 @@
+---
+title: "Water area"
+author: "Bruno Pugliese"
+date: "2023-01-22"
+output: html_document
+---
+
+```{r setup-session, message=FALSE, warning=FALSE, eval=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+pacman::p_load(tidyverse, rio, janitor, lubridate, here)
+source(here::here("0-themes.R"))
+load(here::here("data.Rdata"))
+```
+
+
+Primero, realizamos una visualización sencilla del set de datos para observar algunos datos fuera de tipo.
+
+```{r}
+data %>% 
+  ggplot(
+    aes(x = date, y = water_area)) +
+  geom_line(
+    aes(color = year))+
+  labs(x = "Date", 
+       y = "Water area (Ha)",
+       title = "Water Area") +
+  theme_minimal()
+```
+
+
+En el gráfico anterior pueden observarse varios puntos en donde el área de agua disminuye a 0. Esto puede deberse a algún problema en las imágenes de esas fechas, quizá por nubes. Podemos filtrar esos valores de nuestro dataset. Nos quedamos solo con aquellos datos que superen las 35 Ha de área de agua.
+Para no afectar al datser original, almacenaremos el nuevo dataset filtrado en uno denominado "data_water". Sobre este objeto realizaremos todas las modificaciones que consideremos necesarias para este script.
+
+```{r}
+data %>% 
+  filter(water_area > 35) -> data_water
+
+data_water %>% 
+  ggplot(
+    aes(x = date, y = water_area)) +
+  geom_line(
+    aes(color = year))+
+  labs(x = "Date", 
+       y = "Water area (Ha)",
+       title = "Water Area") +
+  theme_minimal()
+  
+```
+
