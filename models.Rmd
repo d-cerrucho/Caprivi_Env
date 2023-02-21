@@ -35,7 +35,7 @@ rios_chau <- read_csv("rios_chau.csv")
 rios_kat <- read_csv("rios_kat.csv")
 load("~/Caprivi_env/Caprivi_Env/data.Rdata")
 
-#filtrate river chau data for 2018 and avobe
+#filtrate river chauvama data for 2018 and avobe
 rios_chau %>% filter(year > 2017) -> rios_chau
 ```
 ##filtrate water data for months 1-8
@@ -71,6 +71,14 @@ all_data %>%
     day = day(dates)
    ) %>%
   select(-date) -> all_data
+
+
+# agregar una columna de water_agua interpolando para dias sin dato
+
+library(chillR)
+water_int<-interpolate_gaps(all_data[,"water_area"])
+all_data[,"water_int"]<-water_int$interp
+all_data[,"water_interpolated"]<-water_int$missing
 ```
 
 #Una vez completada la base de datos completa, los almacenamos en un archivo ".Rdata". De esta manera, podremos utilizarlos desde cualquier otro script.
@@ -83,47 +91,20 @@ load(here("all_data.Rdata"))
 # figure of rivers and water area together aling the years to have a first view of how they follow each otehr and rought delay estimates
 
 ```{r}
-all_data %>% 
-  ggplot(
-    aes(x = dates, y = cauv_flow)) +
-  geom_line()+
-  labs(x = "Date", 
-       y = "Water Flow (m3.h-1)",
-       title = "Water Flow in Chauvama") +
-  theme_minimal()
-```
-```{r}
 #convert values to realtive for rivers and water
 all_data$cauv_rel<-all_data$cauv_flow/max(all_data$cauv_flow)
 all_data$kat_rel<-all_data$kat_heigt/max(all_data$kat_heigt)
-all_data$water_rel<-all_data$water_area/max(all_data$water_area, na.rm = TRUE)
+all_data$water_rel<-all_data$water_int/max(all_data$water_int)
+all_data$water_rel_p<-all_data$water_area/max(all_data$water_area, na.rm = TRUE)
 
 all_data %>% 
   ggplot() + geom_line(aes(x=dates,y=kat_rel),color='red') + 
-             geom_line(aes(x=dates,y=cauv_rel),color='blue') + 
-             geom_line(aes(x=dates,y=water_rel),color='black', na.rm = TRUE) + 
+             geom_line(aes(x=dates,y=cauv_rel),color='green') + 
+             geom_line(aes(x=dates,y=water_rel),color='blue') + 
+             geom_point(aes(x=dates,y=water_rel_p),color='black', na.rm = TRUE) + 
            ylab('Values')+xlab('dates')
   
-  
-  
-  
- all_data %>%  
-  ggplot(
-    aes(x = dates, y = water_rel, na.rm = TRUE)) +
-  geom_line()+
-  labs(x = "Date", 
-       y = "Level (m)",
-       title = "RIver level in Katima") +
-  theme_minimal()
+
 ```
-```{r}
-all_data %>% 
-  ggplot(
-    aes(x = dates, y = water_area)) +
-  geom_line()+
-  labs(x = "Date", 
-       y = "Water area (ha)",
-       title = "Flooded area in AOI") +
-  theme_minimal()
-```
+
 
