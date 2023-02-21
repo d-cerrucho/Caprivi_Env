@@ -50,4 +50,148 @@ Una vez completada la importación y la edición de todos los datasets, los alma
 save(raw, data, file = "data.Rdata")
 load(here("data.Rdata"))
 ```
-Test
+
+
+
+
+inportacion de datos de caudal y nivel de rios
+```{r}
+url_rios <- "https://docs.google.com/spreadsheets/d/1lky7SlOmO8_FKb1isjAHouuFnRjxjynpbQdhgk3uvjk/edit#gid=1689828122"
+rios_raw <- rio::import(url_rios) %>% 
+clean_names()
+rios_raw %>% glimpsort
+```
+
+En la columna "date" está la fecha de cada dato. Sin embargo, el formato (tipo character) no resulta procesable. Es por  esto que usamos el paquete "lubridate" para crear nuevas columnas con la fecha, año, mes y día. 
+El resultado de ese procesamiento lo almacenamos en el objeto "data" con el cual vamos a continuar trbajando.
+
+```{r}
+rios_raw %>% 
+   mutate(
+    dates = mdy(date),
+    year = factor(year(dates)),
+    month = month(dates),
+    day = day(dates)
+   ) %>%
+  select(-date) -> rios
+
+glimpsort(rios)  
+#view(data)
+```
+
+
+
+Hacer los valores de alrura o caudal de rio para todos los dias en continuo desde el 1ro de enero al 31 de Agosto
+Primero hago un frame que tiene las fechas desde 1 de enero a 31 de agosto, para el periodo 2018-2022 y desde el 1 de enero al 25 de enero en el 2023
+```{r}
+# defining start date
+date <- as.Date("2018/01/01")
+  
+# defining length of range 
+len <- 1845
+  
+# generating range of dates
+period<- seq(date, by = "day", length.out = len)
+
+# hacer period a dataframe
+period<- data.frame(period)
+colnames(period)<-"dates"
+
+# filtering to janyary 1 to Aug 31 on each year
+period %>% 
+   mutate(
+    month = month(dates)
+   )  %>% 
+  filter(month<9) -> period
+
+
+str(period)
+```
+#ZAMBZI AT KATIMA
+
+```{r}
+
+#filter data of zambezi river at katima and then combine the frames
+
+rios_k<- filter(rios,site=="Katima")
+#Pegar databses of river en el periodo continuo
+rios_k<- merge(period, rios_k, by = "dates", all = TRUE)
+
+```
+
+Lleno gaps en fechas que no tenian valores para kat_heigt
+```{r}
+library(chillR)
+kat_heigt<-interpolate_gaps(rios_k[,"kat_heigt"])
+rios_k[,"kat_heigt"]<-kat_heigt$interp
+rios_k[,"kat_interpolated"]<-kat_heigt$missing
+```
+
+Relleno el resto de los datos de fecha
+
+```{r}
+rios_k %>% 
+   mutate(
+    year = factor(year(dates)),
+    month = month(dates),
+    day = day(dates)
+   ) %>%
+  select(-site,-month.x, -cauv_flow, -month.y, -doy) -> rios_k
+```
+
+
+
+Una vez completada la importación y la edición de todos los datasets, los almacenamos en un archivo ".Rdata". De esta manera, podremos utilizarlos desde cualquier otro script.
+
+```{r load-data}
+save(rios_k, file = "rios_kat.Rdata")
+write.csv(rios_k,'rios_kat.csv')
+load(here("rios_kat.Rdata"))
+```
+
+#ZAMBZI AT CHAVUMA
+
+
+```{r}
+
+#filter data of zambezya river at chauvuma and then combine the frames
+
+rios_c<- filter(rios,site=="chauvama")
+#Pegar databses of river en el periodo continuo
+rios_c<- merge(period, rios_c, by = "dates", all = TRUE)
+
+```
+
+Lleno gaps en fechas que no tenian valores para cauv_flow
+```{r}
+library(chillR)
+cauv_flow<-interpolate_gaps(rios_c[,"cauv_flow"])
+rios_c[,"cauv_flow"]<-cauv_flow$interp
+rios_c[,"cauv_interpolated"]<-cauv_flow$missing
+```
+
+Relleno el resto de los datos de fecha
+
+```{r}
+rios_c %>% 
+   mutate(
+    year = factor(year(dates)),
+    month = month(dates),
+    day = day(dates)
+   ) %>%
+ select(-site,-month.x, -kat_heigt, -month.y, -doy) -> rios_c
+```
+
+
+
+Una vez completada la importación y la edición de todos los datasets, los almacenamos en un archivo ".Rdata". De esta manera, podremos utilizarlos desde cualquier otro script.
+
+```{r load-data}
+save(rios_c, file = "rios_chau.Rdata")
+write.csv(rios_c,'rios_chau.csv')
+load(here("rios_chau.Rdata"))
+```
+
+
+
+
