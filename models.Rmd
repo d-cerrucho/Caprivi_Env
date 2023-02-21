@@ -29,7 +29,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-Merge all date from river leves and area flooded with water
+#Merge all date from river leves and area flooded with water
 ```{r}
 rios_chau <- read_csv("rios_chau.csv")
 rios_kat <- read_csv("rios_kat.csv")
@@ -37,29 +37,50 @@ load("~/Caprivi_env/Caprivi_Env/data.Rdata")
 
 #filtrate river chau data for 2018 and avobe
 rios_chau %>% filter(year > 2017) -> rios_chau
+```
+##filtrate water data for months 1-8
 
+```{r}
 #filtrate water data for months 1-8
 data$year<-as.numeric(as.character(data$year))
 data %>% filter(month < 9 & year > 2017) -> data
 data %>% 
    mutate(dates = make_date(year = data$year, month = data$month, day = data$day)) -> data
 
-#Merge
-all_data<-merge (rios_chau , rios_kat, data, by= "dates", all=TRUE)
-
-
-
+str(rios_chau)
+str(rios_kat)
+str(data)
 ```
-Add columns with year, month and day or the month
+
+##Merge
 
 ```{r}
-all_data<- all_data %>% 
+#Merge
+all_data<-merge (rios_chau , rios_kat, by= "dates")
+all_data<-merge(all_data, data, by ="dates", all=TRUE)
+#clean db
+
+all_data %>% 
+  select(-year.x,-day.x,-month.x,-year.y,-day.y,-month.y,-...1.y,-...1.x) -> all_data
+
+# corregir datos de ano, mes y dia
+all_data %>% 
    mutate(
-    year = factor(year(date)),
-    month = month(date),
-    day = day(date)
-   )
-all_data$year<-as.numeric(as.character(all_data$year))
-all_data$day<-as.numeric(all_data$day)
-str(all_data)
+    year = factor(year(dates)),
+    month = month(dates),
+    day = day(dates)
+   ) %>%
+  select(-date) -> all_data
+```
+
+#Una vez completada la base de datos completa, los almacenamos en un archivo ".Rdata". De esta manera, podremos utilizarlos desde cualquier otro script.
+
+```{r load-data}
+save(all_data, data, file = "all_data.Rdata")
+load(here("all_data.Rdata"))
+```
+# figure of rivers and water area together aling the years to have a first view of how they follow each otehr and rought delay estimates
+
+```{r}
+
 ```
