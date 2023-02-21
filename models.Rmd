@@ -1,0 +1,65 @@
+---
+title: "models"
+author: "Diego"
+date: "2023-02-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+MODELS
+
+---
+title: "models"
+author: "Diego"
+date: "2023-01-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Merge all date from river leves and area flooded with water
+```{r}
+rios_chau <- read_csv("rios_chau.csv")
+rios_kat <- read_csv("rios_kat.csv")
+load("~/Caprivi_env/Caprivi_Env/data.Rdata")
+
+#filtrate river chau data for 2018 and avobe
+rios_chau %>% filter(year > 2017) -> rios_chau
+
+#filtrate water data for months 1-8
+data$year<-as.numeric(as.character(data$year))
+data %>% filter(month < 9 & year > 2017) -> data
+data %>% 
+   mutate(dates = make_date(year = data$year, month = data$month, day = data$day)) -> data
+
+#Merge
+all_data<-merge (rios_chau , rios_kat, data, by= "dates", all=TRUE)
+
+
+
+```
+Add columns with year, month and day or the month
+
+```{r}
+all_data<- all_data %>% 
+   mutate(
+    year = factor(year(date)),
+    month = month(date),
+    day = day(date)
+   )
+all_data$year<-as.numeric(as.character(all_data$year))
+all_data$day<-as.numeric(all_data$day)
+str(all_data)
+```
