@@ -79,8 +79,37 @@ all_data %>%
 save(all_data, data, file = "all_data.Rdata")
 load(here("all_data.Rdata"))
 ```
+
 # figure of rivers and water area together aling the years to have a first view of how they follow each otehr and rought delay estimates
 
 ```{r}
-
+all_data %>% 
+  ggplot(
+    aes(x = dates, y = cauv_flow)) +
+  geom_line()+
+  labs(x = "Date", 
+       y = "Water Flow (m3.h-1)",
+       title = "Water Flow in Chauvama") +
+  theme_minimal()
 ```
+```{r}
+all_data %>% 
+  ggplot(
+    aes(x = dates, y = kat_heigt)) +
+  geom_line()+
+  labs(x = "Date", 
+       y = "Level (m)",
+       title = "RIver level in Katima") +
+  theme_minimal()
+```
+```{r}
+all_data %>% 
+  ggplot(
+    aes(x = dates, y = water_area)) +
+  geom_line()+
+  labs(x = "Date", 
+       y = "Water area (ha)",
+       title = "Flooded area in AOI") +
+  theme_minimal()
+```
+
