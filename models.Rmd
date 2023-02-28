@@ -97,14 +97,31 @@ all_data$kat_rel<-all_data$kat_heigt/max(all_data$kat_heigt)
 all_data$water_rel<-all_data$water_int/max(all_data$water_int)
 all_data$water_rel_p<-all_data$water_area/max(all_data$water_area, na.rm = TRUE)
 
-all_data %>% 
+plot1<-all_data %>% 
   ggplot() + geom_line(aes(x=dates,y=kat_rel),color='red') + 
              geom_line(aes(x=dates,y=cauv_rel),color='green') + 
              geom_line(aes(x=dates,y=water_rel),color='blue') + 
              geom_point(aes(x=dates,y=water_rel_p),color='black', na.rm = TRUE) + 
            ylab('Values')+xlab('dates')
-  
+plot(plot1)
 
 ```
+# figure of rivers and water area together aling the years to have a first view of how they follow each otehr and rought delay estimates== river data transformed to katima height/10 and chauvama flow to /10000
 
+```{r}
+#convert values to realtive for rivers and water
+all_data$cauv_div<-all_data$cauv_flow/10000
+all_data$kat_div<-all_data$kat_heigt/10
+all_data$water_rel<-all_data$water_int/max(all_data$water_int)
+all_data$water_rel_p<-all_data$water_area/max(all_data$water_area, na.rm = TRUE)
+
+plot2<-all_data %>% 
+  ggplot() + geom_line(aes(x=dates,y=kat_div),color='red') + 
+             geom_line(aes(x=dates,y=cauv_div),color='green') + 
+             geom_line(aes(x=dates,y=water_rel),color='blue') + 
+             geom_point(aes(x=dates,y=water_rel_p),color='black', na.rm = TRUE) + 
+           ylab('Values')+xlab('dates')
+plot(plot2)
+
+```
 
